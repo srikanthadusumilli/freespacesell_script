@@ -1,0 +1,254 @@
+LVM Configuration using Ansible in CentOS 7
+- May 06, 2017
+1. Install epel repo on CentOS 7 system:
+
+  # yum install epel-release -y
+
+2. Install ansible using yum:
+
+  # yum install ansible -y  
+
+3. Open '/etc/ansible/hosts' file and make a group called 'dbhosts' to add two hosts in it:
+
+  # vi  /etc/ansible/hosts
+
+  [dbhosts]
+   host1.example.com
+   host2.example.com
+
+ 4. Configure passwordless ssh to both host1 & host2 from ansible server:
+
+  # ssh-keygen
+Generating public/private rsa key pair.
+Enter file in which to save the key (/root/.ssh/id_rsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /root/.ssh/id_rsa.
+Your public key has been saved in /root/.ssh/id_rsa.pub.
+The key fingerprint is:
+ce:7d:fd:65:4e:61:4e:a9:09:61:90:d2:75:1b:d1:1d root@server.example.com
+The key's randomart image is:
++--[ RSA 2048]----+
+|        ..o. +oEo|
+|       . o. . o..|
+|        .  o .   |
+|          . .   .|
+|        S  .   = |
+|       o .  ..* .|
+|        o . .o..+|
+|           .   =.|
+|                o|
++-----------------+
+
+5. Copy the public key to both the hosts one by one using below command:
+
+  # ssh-copy-id -i /root/.ssh/id_rsa.pub root@hots1.example.com
+  # ssh-copy-id -i /root/.ssh/id_rsa.pub root@host2.example.com
+
+6. Validate if ansible server is able to communicate with client systems or not:
+
+    # ansible dbhosts -m ping
+    host1.example.com | SUCCESS => {
+        "changed": false,
+        "ping": "pong"
+    }
+    host2.example.com | SUCCESS => {
+        "changed": false,
+        "ping": "pong"
+    }
+
+7. Create an ansible playbook with 'lvmvol.yaml' name to perform the below tasks:
+
+
+It will considered that a 20GB disk is attached to the system and detected as '/dev/sdb'. 
+This will make 4 partitions of 2GB each and mount them into /db00, /db01, /db02 & /db03 respectively.
+The name of the vg will be 'dbvg' and lvm will be db00, db01, db02 & db03.
+Finally it will make a fstab entry to mount them across system reboot.
+
+
+  # vim lvmvol.yaml
+---
+ - hosts: dbhosts
+   user: root
+   tasks:
+        - name: dbvg volume group creation
+          lvg:
+               vg: dbvg
+               pvs: /dev/sdb
+
+        - name: db00 lvm creation
+          lvol:
+               vg: dbvg
+               lv: db00
+               size: 2G
+
+        - name: db01 lvm creation
+          lvol:
+               vg: dbvg
+               lv: db01
+               size: 2G
+
+        - name: db02 lvm creation
+          lvol:
+               vg: dbvg
+               lv: db02
+               size: 2G
+
+        - name: db03 lvm creation
+          lvol:
+               vg: dbvg
+               lv: db03
+               size: 2G
+
+        - name: create file system for db00
+          filesystem:
+                fstype: ext4
+                dev: /dev/dbvg/db00
+
+        - name: create file system for db01
+          filesystem:
+                fstype: ext4
+                dev: /dev/dbvg/db01
+
+        - name: create file system for db02
+          filesystem:
+                fstype: ext4
+                dev: /dev/dbvg/db02
+
+        - name: create file system for db03
+          filesystem:
+                fstype: ext4
+                dev: /dev/dbvg/db03
+
+        - name: mount db00 logical volumes
+          mount:
+                name: /db00
+                src: /dev/dbvg/db00
+                fstype: ext4
+                state: mounted
+
+        - name: mount db01 logical volumes
+          mount:
+                name: /db01
+                src: /dev/dbvg/db01
+                fstype: ext4
+                state: mounted
+
+        - name: mount db02 logical volumes
+          mount:
+                name: /db02
+                src: /dev/dbvg/db02
+                fstype: ext4
+                state: mounted
+
+        - name: mount db03 logical volumes
+          mount:
+                name: /db03
+                src: /dev/dbvg/db03
+                fstype: ext4
+                state: mounted
+
+8. Run the ansible playbook using the below command:
+
+    # ansible-playbook lvmvol.yaml
+
+PLAY [dbhosts] *********************************************************************************
+
+TASK [Gathering Facts] *********************************************************************************
+ok: [host2.example.com]
+ok: [host1.example.com]
+
+TASK [dbvg volume group creation] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [db00 lvm creation] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [db01 lvm creation] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [db02 lvm creation] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [db03 lvm creation] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [create file system for db00] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [create file system for db01] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [create file system for db02] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [create file system for db03] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [mount db00 logical volumes] *********************************************************************************
+changed: [host2.example.com]
+changed: [host1.example.com]
+
+TASK [mount db01 logical volumes] *********************************************************************************
+changed: [host1.example.com]
+changed: [host2.example.com]
+
+TASK [mount db02 logical volumes] *********************************************************************************
+changed: [host1.example.com]
+changed: [host2.example.com]
+
+TASK [mount db03 logical volumes] *********************************************************************************
+changed: [host1.example.com]
+changed: [host2.example.com]
+
+PLAY RECAP *********************************************************************************
+host1.example.com             : ok=14   changed=13   unreachable=0    failed=0
+host2.example.com             : ok=14   changed=13   unreachable=0    failed=0
+
+9. Value of mounts:
+
+# df -Th | egrep 'dbvg|Filesystem'
+Filesystem                Type      Size  Used Avail Use% Mounted on
+/dev/mapper/dbvg-db00 ext4      2.0G  6.0M  1.8G   1% /db00
+/dev/mapper/dbvg-db01 ext4      2.0G  6.0M  1.8G   1% /db01
+/dev/mapper/dbvg-db02 ext4      2.0G  6.0M  1.8G   1% /db02
+/dev/mapper/dbvg-db03 ext4      2.0G  6.0M  1.8G   1% /db03
+
+10. Value of PVS, VGS & LVS:
+# pvs
+  PV         VG       Fmt  Attr PSize  PFree
+  /dev/sda2  cl       lvm2 a--   9.00g     0
+  /dev/sdb   dbvg     lvm2 a--  20.00g 12.00g
+
+# vgs
+  VG       #PV #LV #SN Attr   VSize  VFree
+  cl         1   2   0 wz--n-  9.00g     0
+  dbvg       1   4   0 wz--n- 20.00g 12.00g
+
+# lvs
+  LV   VG       Attr       LSize Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  root cl   -wi-ao---- 8.00g
+  swap cl   -wi-ao---- 1.00g
+  db00 dbvg -wi-ao---- 2.00g
+  db01 dbvg -wi-ao---- 2.00g
+  db02 dbvg -wi-ao---- 2.00g
+  db03 dbvg -wi-ao---- 2.00g
+
+11. Available entry in fstab:
+  # egrep dbvg  /etc/fstab
+  /dev/dbvg/db00   /db00   ext4   defaults   0 0
+  /dev/dbvg/db01   /db01   ext4   defaults   0 0
+  /dev/dbvg/db02   /db02   ext4   defaults   0 0
+  /dev/dbvg/db03   /db03   ext4   defaults   0 0
+
+
+          !!  With the above steps lvm configuration using ansible  is done  !!
