@@ -1,0 +1,120 @@
+To create a Ansible roles, use ansible-galaxy command which has the templates to create it. This will create it under the default directory /etc/ansible/roles and do the modifications else we need to create each directories and files manually.
+
+[root@learnitguide ~]# ansible-galaxy init /etc/ansible/roles/apache –offline
+– apache was created successfully
+[root@learnitguide ~]# 
+
+where, ansible-glaxy is the command to create the roles using the templates.
+init is to initiliaze the role.
+apache is the name of role,
+offline – create offline mode rather than getting from online repository.
+
+List out the directory created under /etc/ansible/roles.
+
+[root@learnitguide ~]# tree /etc/ansible/roles/apache/
+/etc/ansible/roles/apache/
+|– readme.md
+|– defaults
+|   `– main.yml
+|– files
+|– handlers
+|   `– main.yml
+|– meta
+|   `– main.yml
+|– tasks
+|   `– main.yml
+|– templates
+|– tests
+|   |– inventory
+|   `– test.yml
+`– vars
+    `– main.yml
+8 directories, 8 files
+[root@learnitguide ~]#
+
+We have got the clean directory structure with the ansible-galaxy command. Each directory must contain a main.yml file, which contains the relevant content.
+
+Directory Structure:
+tasks – contains the main list of tasks to be executed by the role.
+handlers – contains handlers, which may be used by this role or even anywhere outside this role.
+defaults – default variables for the role.
+vars – other variables for the role. Vars has the higher priority than defaults.
+files – contains files required to transfer or deployed to the target machines via this role.
+templates – contains templates which can be deployed via this role.
+meta – defines some data / information about this role (author, dependency, versions, examples, etc,.)
+
+Lets take an example to create a role for Apache Web server.
+
+Below is a sample playbook codes to deploy Apache web server. Lets convert this playbook codes into Ansible roles.
+
+—
+– hosts: all
+  tasks:
+  – name: install httpd package
+    yum: name=httpd state=latest
+  – name: copy httpd configuration file
+    copy: src=/data/httpd.original dest=/etc/httpd/conf/httpd.conf
+  – name: copy index.html file
+    copy: src=/data/index.html dest=/var/www/html
+    notify:
+    – restart apache
+  – name: start and enable httpd service
+    service: name=httpd state=restarted enabled=yes
+  handlers:
+  – name: restart apache
+    service: name=httpd state=restarted
+
+First, move on to the Ansible roles directory and start editing the yml files.
+
+cd /etc/ansible/roles/apache
+
+1. Tasks
+[ads-post]
+Edit main.yml available in the tasks folder to define the tasks to be executed.
+
+[root@learnitguide apache]# vi tasks/main.yml
+—
+– name: install httpd package
+  yum: name=httpd state=latest
+– name: copy httpd configuration file
+  copy: src=/data/httpd.original dest=/etc/httpd/conf/httpd.conf
+– name: copy index.html file
+  copy: src=/data/index.html dest=/var/www/html
+  notify:
+  – restart apache
+– name: start and enable httpd service
+  service: name=httpd state=restarted enabled=yes
+
+Altogether, you can add all your tasks in this file or just break the codes even more as below using “import_tasks” statements.
+
+[root@learnitguide apache]# cat tasks/main.yml
+—
+# tasks file for /etc/ansible/roles/apache
+– import_tasks: install.yml
+– import_tasks: configure.yml
+– import_tasks: service.yml
+
+Lets create install.yml, confgure.yml, service.yml included in the main.yml with actions in the same directory.
+
+install.yml
+
+[root@learnitguide apache]# cat tasks/install.yml
+—
+– name: install httpd package
+  yum: name=httpd state=latest
+
+configure.yml
+
+[root@learnitguide apache]# cat tasks/configure.yml
+—
+– name: copy httpd configuration file
+  copy: src=files/httpd.conf dest=/etc/httpd/conf/httpd.conf
+– name: copy index.html file
+  copy: src=files/index.html dest=/var/www/html
+  notify:
+  – restart apache
+
+service.yml
+
+[root@learnitguide apache]# cat tasks/service.yml
+—
