@@ -117,4 +117,125 @@ configure.yml
 service.yml
 
 [root@learnitguide apache]# cat tasks/service.yml
+
+—index.html
+[root@learnitguide apache]# cat files/index.html
+this is a homepage created by learnitguide.net for ansible roles.
+[root@learnitguide apache]#
+
+3. Handlers
+Edit handlers main.yml to restart the server when there is a change. Because we have already defined it in the tasks with notify option. Use the same name “restart apache” within the main.yml file as below.
+
+[root@learnitguide apache]# cat handlers/main.yml
 —
+# handlers file for /etc/ansible/roles/apache
+– name: restart apache
+  service: name=httpd state=restarted
+
+4. Meta
+Edit meta main.yml to add the information about the roles like author, descriptions, license, platforms supported.
+
+[root@learnitguide apache]# cat meta/main.yml
+galaxy_info:
+  author: learnitguide.net
+  description: apache webserver role
+  company: learnitguide.net
+  # if the issue tracker for your role is not on github, uncomment the
+  # next line and provide a value
+  # issue_tracker_url: http://example.com/issue/tracker
+  # some suggested licenses:
+  # – bsd (default)
+  # – mit
+  # – gplv2
+  # – gplv3
+  # – apache
+  # – cc-by
+  license: license (gplv2, cc-by, etc)
+  min_ansible_version: 1.2
+  # if this a container enabled role, provide the minimum ansible container version.
+——skipped
+
+List out the created files now,
+
+[root@learnitguide apache]# tree
+.
+|– readme.md
+|– defaults
+|   `– main.yml
+|– files
+|   |– httpd.conf
+|   `– index.html
+|– handlers
+|   `– main.yml
+|– meta
+|   `– main.yml
+|– tasks
+|   |– configure.yml
+|   |– install.yml
+|   |– main.yml
+|   `– service.yml
+|– templates
+|– tests
+|   |– inventory
+|   `– test.yml
+`– vars
+    `– main.yml
+8 directories, 13 files
+[root@learnitguide apache]#
+
+We have got all the required files for Apache roles. Lets apply this role into the ansible playbook “runsetup.yml” as below to deploy it on the client nodes.
+
+[root@learnitguide apache]# cat /etc/ansible/runsetup.yml
+—
+ – hosts: node2
+   roles:
+   – apache
+[root@learnitguide apache]#
+
+We have defined this changes should be run only on node2, you can also use “all” if need. Specify the role name as “apache”, also if you have created multiple roles, you can use the below format to add it.
+– apache
+– nfs
+– ntp
+
+Lets verify for syntax errors:
+
+[root@learnitguide apache]# ansible-playbook /etc/ansible/runsetup.yml –syntax-check
+playbook: /etc/ansible/runsetup.yml
+[root@learnitguide apache]#
+
+No errors found. Let move on to deploy the roles.
+
+[root@learnitguide apache]# ansible-playbook /etc/ansible/runsetup.yml
+play [node2] ***************************************************************************************************
+task [gathering facts] *****************************************************************************************
+ok: [node2]
+task [apache : install httpd package] **************************************************************************
+changed: [node2]
+task [apache : copy httpd configuration file] ******************************************************************
+changed: [node2]
+task [apache : copy index.html file] ***************************************************************************
+changed: [node2]
+task [apache : start and enable httpd service] *****************************************************************
+changed: [node2]
+running handler [apache : restart apache] **********************************************************************
+changed: [node2]
+play recap *****************************************************************************************************
+node2                      : ok=6    changed=5    unreachable=0    failed=0
+
+That’s it, We have successfully deployed the Apache webserver using Ansible Roles to the client node “node2”.
+
+Login into the client node “node2” and verify the following things.
+
+[root@node2 ~]# rpm -q httpd
+httpd-2.4.6-67.el7.centos.6.x86_64
+[root@node2 ~]# systemctl status httpd
+httpd.service – the apache http server
+   loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled)
+   active: active (running) since sun 2018-02-04 10:23:44 ist; 1min 58s ago
+     docs: man:httpd(8)
+           man:apachectl(8)
+
+Access the webpage using elinks command or using browser, you will be able to access it.
+
+[root@node2 ~]# elinks http://node2
+this is a homepage created by learnitguide.net for ansible roles.
